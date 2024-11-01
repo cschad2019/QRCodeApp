@@ -1,11 +1,14 @@
 import tkinter as tk
-from tkinter import colorchooser, messagebox
+from tkinter import colorchooser, messagebox, filedialog
 import qrcode
 from PIL import ImageTk, Image, ImageDraw
-import re  # Import regular expressions
+import re  # For URL validation
+
+# Global variable to track premium status
+is_premium = False
 
 def is_valid_url(url):
-    # Simple regex for URL validation
+    # Basic regex to check if the URL is valid
     regex = re.compile(
         r'^(?:http|ftp)s?://'  # http:// or https://
         r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
@@ -18,31 +21,32 @@ def is_valid_url(url):
 
 def generate_qr():
     url = url_entry.get()
-    color = color_entry.get()
     shape = shape_var.get()  # Get the selected shape
-    
-    if url and is_valid_url(url):  # Validate URL before generating
-        try:
-            qr = qrcode.QRCode(version=1, box_size=10, border=5)
-            qr.add_data(url)
-            qr.make(fit=True)
-            img = qr.make_image(fill_color=color, back_color="white")
-            img = img.convert("RGBA")
 
-            # Create a shape mask for the QR code
-            img_with_shape = apply_shape_mask(img, shape)
-
-            img_with_shape.save("qr_code.png")
-            display_qr_code()
-        except Exception as e:
-            messagebox.showerror("Error", f"An error occurred: {str(e)}")
-    else:
+    if not is_valid_url(url):
         messagebox.showwarning("Input Error", "Please enter a valid URL.")
+        return  # Stop processing if the URL is invalid
+
+    color = color_entry.get() if not is_premium else "black"  # Use color input for basic users or black for premium
+
+    try:
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color=color, back_color="white")
+        img = img.convert("RGBA")
+
+        # Create a shape mask for the QR code
+        img_with_shape = apply_shape_mask(img, shape)
+
+        img_with_shape.save("qr_code.png")
+        display_qr_code()
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
 def apply_shape_mask(qr_image, shape):
     width, height = qr_image.size
     mask = Image.new("L", (width, height), 0)
-
     draw = ImageDraw.Draw(mask)
 
     if shape == "square":
@@ -52,7 +56,6 @@ def apply_shape_mask(qr_image, shape):
     elif shape == "triangle":
         draw.polygon([(width // 2, 0), (width, height), (0, height)], fill=255)
 
-    # Create a new image with the shape mask applied to the QR code
     qr_image.putalpha(mask)  # Apply mask to QR code image
     return qr_image
 
@@ -60,7 +63,6 @@ def display_qr_code():
     img = Image.open("qr_code.png")
     img = img.resize((250, 250))
     img_tk = ImageTk.PhotoImage(img)
-    
     qr_label.config(image=img_tk)
     qr_label.image = img_tk
 
@@ -70,11 +72,39 @@ def choose_color():
         color_entry.delete(0, tk.END)
         color_entry.insert(0, color)
 
+def upload_image():
+    file_path = filedialog.askopenfilename(title="Select an Image", filetypes=[("PNG files", "*.png")])
+    if file_path:
+        try:
+            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+            qr.add_data(url_entry.get())
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            img = img.convert("RGBA")
+
+            # Load and resize the uploaded image
+            overlay_image = Image.open(file_path).resize((250, 250))
+            img.paste(overlay_image, (0, 0), overlay_image)  # Composite the images
+            
+            img.save("qr_code.png")
+            display_qr_code()
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
 def reset_fields():
     url_entry.delete(0, tk.END)
     color_entry.delete(0, tk.END)
     shape_var.set("square")  # Reset to default shape
     qr_label.config(image='')  # Clear the displayed QR code
+    premium_buttons_frame.pack_forget()  # Hide premium buttons if they were shown
+
+def sign_up_premium():
+    global is_premium
+    is_premium = True
+    messagebox.showinfo("Premium Signup", "You have successfully signed up for premium features!")
+    
+    # Show premium feature buttons
+    premium_buttons_frame.pack(pady=10)
 
 # Set up the GUI
 root = tk.Tk()
@@ -102,13 +132,10 @@ url_entry = tk.Entry(frame, width=40, font=('Helvetica', 12))
 url_entry.pack(pady=5)
 
 # Color input
-color_label = tk.Label(frame, text="Choose Color:", font=('Helvetica', 14), bg='#ffffff')
+color_label = tk.Label(frame, text="Choose Color (Basic):", font=('Helvetica', 14), bg='#ffffff')
 color_label.pack(pady=5)
 color_entry = tk.Entry(frame, width=40, font=('Helvetica', 12))
 color_entry.pack(pady=5)
-
-color_button = tk.Button(frame, text="Choose Color", command=choose_color, bg='#007bff', fg='white', font=('Helvetica', 12))
-color_button.pack(pady=5)
 
 # Shape selection
 shape_var = tk.StringVar(value="square")  # Default shape
@@ -126,6 +153,21 @@ triangle_radio.pack(anchor='w')
 # Generate button
 generate_button = tk.Button(frame, text="Generate QR Code", command=generate_qr, bg='#28a745', fg='white', font=('Helvetica', 12))
 generate_button.pack(pady=20)
+
+# Premium feature buttons frame
+premium_buttons_frame = tk.Frame(frame, bg='#ffffff')
+
+# Color wheel button (only for premium users)
+color_button = tk.Button(premium_buttons_frame, text="Choose Color (Premium)", command=choose_color, bg='#007bff', fg='white', font=('Helvetica', 12))
+color_button.pack(pady=5)
+
+# Upload image button (only for premium users)
+upload_button = tk.Button(premium_buttons_frame, text="Upload Image for QR (Premium)", command=upload_image, bg='#007bff', fg='white', font=('Helvetica', 12))
+upload_button.pack(pady=5)
+
+# Sign up for premium button
+premium_button = tk.Button(frame, text="Sign Up for Premium", command=sign_up_premium, bg='#ffc107', fg='black', font=('Helvetica', 12))
+premium_button.pack(pady=5)
 
 # Reset button
 reset_button = tk.Button(frame, text="Reset", command=reset_fields, bg='#dc3545', fg='white', font=('Helvetica', 12))
