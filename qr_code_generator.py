@@ -27,13 +27,19 @@ def generate_qr():
         messagebox.showwarning("Input Error", "Please enter a valid URL.")
         return  # Stop processing if the URL is invalid
 
-    color = color_entry.get() if not is_premium else "black"  # Use color input for basic users or black for premium
+    # Determine color based on premium status
+    if is_premium:
+        color = color_entry.get()  # Get color from the color wheel for premium users
+        if not color:
+            color = "black"  # Default color if no color is selected
+    else:
+        color = color_entry.get()  # Get the color input for basic users
 
     try:
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(url)
         qr.make(fit=True)
-        img = qr.make_image(fill_color=color, back_color="white")
+        img = qr.make_image(fill_color=color, back_color="white")  # Fill color based on the user's choice
         img = img.convert("RGBA")
 
         # Create a shape mask for the QR code
