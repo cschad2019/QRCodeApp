@@ -34,9 +34,14 @@ def choose_color():
         color_entry.delete(0, tk.END)
         color_entry.insert(0, color)
 
+def reset_fields():
+    url_entry.delete(0, tk.END)
+    color_entry.delete(0, tk.END)
+    qr_label.config(image='')  # Clear the displayed QR code
+
 # Set up the GUI
 root = tk.Tk()
-root.title("Style QR")  # App title
+root.title("Style QR")
 
 # Set a background color
 root.configure(bg='#f0f0f0')
@@ -71,6 +76,10 @@ color_button.pack(pady=5)
 # Generate button
 generate_button = tk.Button(frame, text="Generate QR Code", command=generate_qr, bg='#28a745', fg='white', font=('Helvetica', 12))
 generate_button.pack(pady=20)
+
+# Reset button
+reset_button = tk.Button(frame, text="Reset", command=reset_fields, bg='#dc3545', fg='white', font=('Helvetica', 12))
+reset_button.pack(pady=5)
 
 # Label to display QR code
 qr_label = tk.Label(frame)
