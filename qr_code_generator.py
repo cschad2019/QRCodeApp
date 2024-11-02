@@ -3,6 +3,7 @@ from tkinter import colorchooser, messagebox, filedialog
 import qrcode
 from PIL import ImageTk, Image, ImageDraw
 import re  # For URL validation
+import numpy as np  # For blending images
 
 # Global variable to track premium status
 is_premium = False
@@ -39,13 +40,18 @@ def generate_qr():
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(url)
         qr.make(fit=True)
-        img = qr.make_image(fill_color=color, back_color="white")  # Fill color based on the user's choice
-        img = img.convert("RGBA")
+        img = qr.make_image(fill_color=color, back_color="white").convert("RGB")  # Convert to RGB
 
-        # Create a shape mask for the QR code
+        # Apply the shape mask if needed
         img_with_shape = apply_shape_mask(img, shape)
 
-        img_with_shape.save("qr_code.png")
+        # Check if an image is uploaded for blending
+        if uploaded_image_path:
+            blended_img = blend_image_with_qr(img_with_shape, uploaded_image_path)
+            blended_img.save("qr_code.png")
+        else:
+            img_with_shape.save("qr_code.png")
+
         display_qr_code()
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {str(e)}")
@@ -65,6 +71,21 @@ def apply_shape_mask(qr_image, shape):
     qr_image.putalpha(mask)  # Apply mask to QR code image
     return qr_image
 
+def blend_image_with_qr(qr_img, logo_path):
+    # Load the logo and resize it to match the QR code's size
+    logo = Image.open(logo_path).convert("RGBA")
+    logo = logo.resize((int(qr_img.size[0] * 0.3), int(qr_img.size[1] * 0.3)))  # Resize logo to 30% of QR code size
+
+    # Calculate the position to center the logo on the QR code
+    logo_position = ((qr_img.size[0] - logo.size[0]) // 2, (qr_img.size[1] - logo.size[1]) // 2)
+
+    # Create a new image to blend the QR code and logo
+    blended_img = Image.new("RGBA", qr_img.size)
+    blended_img.paste(qr_img.convert("RGBA"), (0, 0))  # Convert qr_img to RGBA before pasting
+    blended_img.paste(logo, logo_position, logo)  # Use logo as mask for blending
+
+    return blended_img.convert("RGB")  # Convert back to RGB for saving
+
 def display_qr_code():
     img = Image.open("qr_code.png")
     img = img.resize((250, 250))
@@ -79,23 +100,11 @@ def choose_color():
         color_entry.insert(0, color)
 
 def upload_image():
-    file_path = filedialog.askopenfilename(title="Select an Image", filetypes=[("PNG files", "*.png")])
+    global uploaded_image_path
+    file_path = filedialog.askopenfilename(title="Select an Image", filetypes=[("PNG files", "*.png"), ("All files", "*.*")])
     if file_path:
-        try:
-            qr = qrcode.QRCode(version=1, box_size=10, border=5)
-            qr.add_data(url_entry.get())
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
-            img = img.convert("RGBA")
-
-            # Load and resize the uploaded image
-            overlay_image = Image.open(file_path).resize((250, 250))
-            img.paste(overlay_image, (0, 0), overlay_image)  # Composite the images
-            
-            img.save("qr_code.png")
-            display_qr_code()
-        except Exception as e:
-            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        uploaded_image_path = file_path  # Store the path for use in QR generation
+        print(f"Selected file: {uploaded_image_path}")  # Debugging print statement
 
 def reset_fields():
     url_entry.delete(0, tk.END)
@@ -103,6 +112,8 @@ def reset_fields():
     shape_var.set("square")  # Reset to default shape
     qr_label.config(image='')  # Clear the displayed QR code
     premium_buttons_frame.pack_forget()  # Hide premium buttons if they were shown
+    global uploaded_image_path
+    uploaded_image_path = None  # Reset uploaded image path
 
 def sign_up_premium():
     global is_premium
@@ -172,15 +183,18 @@ upload_button = tk.Button(premium_buttons_frame, text="Upload Image for QR (Prem
 upload_button.pack(pady=5)
 
 # Sign up for premium button
-premium_button = tk.Button(frame, text="Sign Up for Premium", command=sign_up_premium, bg='#ffc107', fg='black', font=('Helvetica', 12))
-premium_button.pack(pady=5)
+premium_button = tk.Button(frame, text="Sign Up for Premium Features", command=sign_up_premium, bg='#ffc107', fg='black', font=('Helvetica', 12))
+premium_button.pack(pady=10)
 
 # Reset button
-reset_button = tk.Button(frame, text="Reset", command=reset_fields, bg='#dc3545', fg='white', font=('Helvetica', 12))
+reset_button = tk.Button(frame, text="Reset Fields", command=reset_fields, bg='#dc3545', fg='white', font=('Helvetica', 12))
 reset_button.pack(pady=5)
 
-# Label to display QR code
-qr_label = tk.Label(frame)
+# QR code display label
+qr_label = tk.Label(frame, bg='#ffffff')
 qr_label.pack(pady=20)
+
+# Initialize the uploaded image path
+uploaded_image_path = None
 
 root.mainloop()
