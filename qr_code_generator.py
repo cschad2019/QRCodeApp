@@ -31,7 +31,7 @@ def generate_qr():
     color = color_entry.get() if is_premium or color_entry.get() else "black"
 
     try:
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr = qrcode.QRCode(version=1, box_size=10, border=5, error_correction=qrcode.constants.ERROR_CORRECT_H)
         qr.add_data(url)
         qr.make(fit=True)
         img = qr.make_image(fill_color=color, back_color="white").convert("RGB")
@@ -73,30 +73,31 @@ def open_qr_window():
 
 def apply_shape_mask(qr_image, shape):
     width, height = qr_image.size
-    mask = Image.new("L", (width, height), 0)
+    mask = Image.new("L", (width, height), 255)  # Start with a white mask (opaque)
     draw = ImageDraw.Draw(mask)
 
     if shape == "square":
-        draw.rectangle([0, 0, width, height], fill=255)
+        draw.rectangle([0, 0, width, height], fill=255)  # Full area
     elif shape == "circle":
-        draw.ellipse([0, 0, width, height], fill=255)
+        draw.ellipse([0, 0, width, height], fill=255)  # Full circle
     elif shape == "triangle":
-        draw.polygon([(width // 2, 0), (width, height), (0, height)], fill=255)
+        draw.polygon([(width // 2, 0), (width, height), (0, height)], fill=255)  # Full triangle
 
-    qr_image.putalpha(mask)
+    # Ensure the core of the QR code is visible
+    qr_image.putalpha(mask)  # Apply mask to the QR code image
     return qr_image
 
 def embed_image_in_qr(qr_img, logo_path):
     try:
         logo = Image.open(logo_path).convert("RGBA")
-        logo = logo.resize((int(qr_img.size[0] * 0.4), int(qr_img.size[1] * 0.4)))
+        logo = logo.resize((int(qr_img.size[0] * 0.3), int(qr_img.size[1] * 0.3)))  # Smaller logo
 
         logo_position = ((qr_img.size[0] - logo.size[0]) // 2, (qr_img.size[1] - logo.size[1]) // 2)
 
         # Create a mask for the image placement inside the QR code
-        mask = Image.new("L", (qr_img.size[0], qr_img.size[1]), 0)
+        mask = Image.new("L", (qr_img.size[0], qr_img.size[1]), 255)  # Ensure no transparency in QR code data
         draw = ImageDraw.Draw(mask)
-        draw.rectangle([logo_position[0], logo_position[1], logo_position[0] + logo.size[0], logo_position[1] + logo.size[1]], fill=255)
+        draw.rectangle([logo_position[0], logo_position[1], logo_position[0] + logo.size[0], logo_position[1] + logo.size[1]], fill=0)  # Keep the QR code's critical areas intact
         qr_img.putalpha(mask)
 
         # Combine the QR code and logo
@@ -188,17 +189,16 @@ generate_button = tk.Button(frame, text="Generate QR Code", command=generate_qr,
 generate_button.pack(pady=10)
 
 premium_buttons_frame = tk.Frame(frame, bg='#ffffff')
-color_button = tk.Button(premium_buttons_frame, text="Choose Color (Premium)", command=choose_color, bg='#007bff', fg='white', font=('Helvetica', 12))
+color_button = tk.Button(premium_buttons_frame, text="Choose Color", command=choose_color, bg='#007bff', fg='white')
 color_button.pack(pady=5)
 
-upload_button = tk.Button(premium_buttons_frame, text="Upload Image for QR (Premium)", command=upload_image, bg='#007bff', fg='white', font=('Helvetica', 12))
+upload_button = tk.Button(premium_buttons_frame, text="Upload Image", command=upload_image, bg='#007bff', fg='white')
 upload_button.pack(pady=5)
 
-reset_button = tk.Button(frame, text="Reset", command=reset_fields, bg='#dc3545', fg='white', font=('Helvetica', 12))
-reset_button.pack(pady=10)
+reset_button = tk.Button(frame, text="Reset", command=reset_fields, bg='#ff6f61', fg='white', font=('Helvetica', 12))
+reset_button.pack(pady=5)
 
-if not is_premium:
-    premium_button = tk.Button(frame, text="Sign Up for Premium Features", command=sign_up_premium, bg='#007bff', fg='white', font=('Helvetica', 12))
-    premium_button.pack(pady=10)
+premium_button = tk.Button(frame, text="Sign Up for Premium", command=sign_up_premium, bg='#007bff', fg='white', font=('Helvetica', 12))
+premium_button.pack(pady=10)
 
 root.mainloop()
