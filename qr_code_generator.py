@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import colorchooser, messagebox, filedialog
+from tkinter import colorchooser, messagebox, filedialog, Toplevel
 import qrcode
-from PIL import ImageTk, Image, ImageDraw
+from PIL import ImageTk, Image, ImageDraw, ImageFont
 import re
 import numpy as np
 
@@ -71,6 +71,11 @@ def open_qr_window():
     download_button = tk.Button(qr_window, text="Download QR Code", command=download_qr_code, bg='#007bff', fg='white')
     download_button.pack(pady=10)
 
+    # Only show the business card button if the user is premium
+    if is_premium:
+        business_card_button = tk.Button(qr_window, text="Generate Business Card", command=lambda: open_business_card_window(qr_window), bg='#28a745', fg='white')
+        business_card_button.pack(pady=5)
+
 def apply_shape_mask(qr_image, shape):
     width, height = qr_image.size
     mask = Image.new("L", (width, height), 255)  # Start with a white mask (opaque)
@@ -83,7 +88,6 @@ def apply_shape_mask(qr_image, shape):
     elif shape == "triangle":
         draw.polygon([(width // 2, 0), (width, height), (0, height)], fill=255)  # Full triangle
 
-    # Ensure the core of the QR code is visible
     qr_image.putalpha(mask)  # Apply mask to the QR code image
     return qr_image
 
@@ -147,58 +151,131 @@ def sign_up_premium():
     global is_premium
     is_premium = True
     messagebox.showinfo("Premium Signup", "You have successfully signed up for premium features!")
+
+    # Show the premium features immediately
     premium_button.pack_forget()  # Hide the premium signup button
-    premium_buttons_frame.pack(pady=10)
+    color_label.config(text="Choose Color (Premium):")  # Update label for premium users
+    color_button = tk.Button(frame, text="Choose Color", command=choose_color, bg='#007bff', fg='white')
+    color_button.pack(pady=5)
 
-# Set up the GUI
+    upload_button = tk.Button(frame, text="Upload Image", command=upload_image, bg='#007bff', fg='white')
+    upload_button.pack(pady=5)
+
+    # Show business card option only for premium users
+    business_card_button = tk.Button(frame, text="Generate Business Card", command=lambda: open_business_card_window(), bg='#28a745', fg='white')
+    business_card_button.pack(pady=5)
+
+def open_business_card_window():
+    business_card_window = Toplevel(root)
+    business_card_window.title("Enter Business Card Information")
+
+    # Professional layout for business card window
+    business_card_window.geometry("400x300")
+
+    # Title and styling
+    title_label = tk.Label(business_card_window, text="Style QR - Business Card", font=("Helvetica", 16, "bold"), fg="#28a745")
+    title_label.pack(pady=10)
+
+    # Input fields for business card details
+    name_label = tk.Label(business_card_window, text="Name:", font=('Helvetica', 12))
+    name_label.pack(pady=5)
+    name_entry = tk.Entry(business_card_window, font=('Helvetica', 12), width=30)
+    name_entry.pack(pady=5)
+
+    title_label = tk.Label(business_card_window, text="Title:", font=('Helvetica', 12))
+    title_label.pack(pady=5)
+    title_entry = tk.Entry(business_card_window, font=('Helvetica', 12), width=30)
+    title_entry.pack(pady=5)
+
+    contact_label = tk.Label(business_card_window, text="Contact Info:", font=('Helvetica', 12))
+    contact_label.pack(pady=5)
+    contact_entry = tk.Entry(business_card_window, font=('Helvetica', 12), width=30)
+    contact_entry.pack(pady=5)
+
+    generate_button = tk.Button(business_card_window, text="Generate Business Card", command=lambda: generate_business_card(name_entry.get(), title_entry.get(), contact_entry.get()), bg="#28a745", fg="white")
+    generate_button.pack(pady=20)
+
+def generate_business_card(name, title, contact):
+    if not name or not title or not contact:
+        messagebox.showwarning("Input Error", "Please fill in all fields.")
+        return
+
+    try:
+        qr_img = Image.open("qr_code.png")
+        business_card = create_business_card(qr_img, name, title, contact)
+
+        # Show the generated business card
+        business_card.show()
+
+        # Save the business card
+        business_card.save("business_card.png")
+        messagebox.showinfo("Business Card", "Business card has been generated and saved as business_card.png.")
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred while generating the business card: {str(e)}")
+
+def create_business_card(qr_img, name, title, contact):
+    business_card = Image.new("RGB", (600, 400), color=(255, 255, 255))
+    draw = ImageDraw.Draw(business_card)
+
+    # Draw QR code
+    qr_img_resized = qr_img.resize((150, 150))
+    business_card.paste(qr_img_resized, (50, 125))
+
+    # Add text for name, title, and contact information
+    font = ImageFont.load_default()
+    draw.text((200, 50), name, fill="black", font=font)
+    draw.text((200, 100), title, fill="black", font=font)
+    draw.text((200, 150), f"Contact: {contact}", fill="black", font=font)
+
+    return business_card
+
+# GUI Setup
 root = tk.Tk()
-root.title("Style QR")
-root.configure(bg='#f0f0f0')
+root.title("Style QR")  # Title in bold
 
-frame = tk.Frame(root, bg='#ffffff', padx=20, pady=20)
-frame.pack(padx=10, pady=10)
+# Frame setup to fill the entire window
+frame = tk.Frame(root, padx=10, pady=10, bg="#e3f2fd")  # Light blue background for the frame
+frame.pack(fill=tk.BOTH, expand=True)
 
-title_label = tk.Label(frame, text="Style QR", font=('Helvetica', 24, 'bold'), bg='#ffffff', fg='#333333')
-title_label.pack(pady=10)
+# App title at the top
+title_label = tk.Label(frame, text="Style QR", font=("Helvetica", 20, "bold"), fg="#007bff", bg="#e3f2fd")
+title_label.pack(pady=20)
 
-subtitle_label = tk.Label(frame, text="Generate QR Code Here", font=('Helvetica', 14), bg='#ffffff', fg='#555555')
-subtitle_label.pack(pady=5)
-
-url_label = tk.Label(frame, text="Type URL Here:", font=('Helvetica', 14), bg='#ffffff')
+url_label = tk.Label(frame, text="Enter URL:", font=('Helvetica', 12), bg="#e3f2fd")
 url_label.pack(pady=5)
-url_entry = tk.Entry(frame, width=40, font=('Helvetica', 12))
+
+url_entry = tk.Entry(frame, font=('Helvetica', 14), width=30)
 url_entry.pack(pady=5)
 
-color_label = tk.Label(frame, text="Choose Color (Basic):", font=('Helvetica', 14), bg='#ffffff')
+color_label = tk.Label(frame, text="Choose Color:", font=('Helvetica', 12), bg="#e3f2fd")
 color_label.pack(pady=5)
-color_entry = tk.Entry(frame, width=40, font=('Helvetica', 12))
+
+color_entry = tk.Entry(frame, font=('Helvetica', 14), width=30)
 color_entry.pack(pady=5)
 
-shape_var = tk.StringVar(value="square")
-shapes_frame = tk.LabelFrame(frame, text="Choose Shape:", bg='#ffffff', font=('Helvetica', 14))
-shapes_frame.pack(pady=10)
+shape_label = tk.Label(frame, text="Choose Shape:", font=('Helvetica', 12), bg="#e3f2fd")
+shape_label.pack(pady=5)
 
-square_radio = tk.Radiobutton(shapes_frame, text="Square", variable=shape_var, value="square", bg='#ffffff')
-circle_radio = tk.Radiobutton(shapes_frame, text="Circle", variable=shape_var, value="circle", bg='#ffffff')
-triangle_radio = tk.Radiobutton(shapes_frame, text="Triangle", variable=shape_var, value="triangle", bg='#ffffff')
-square_radio.pack(anchor='w')
-circle_radio.pack(anchor='w')
-triangle_radio.pack(anchor='w')
+shape_var = tk.StringVar()
+shape_var.set("square")
 
-generate_button = tk.Button(frame, text="Generate QR Code", command=generate_qr, bg='#28a745', fg='white', font=('Helvetica', 12))
+shapes_frame = tk.Frame(frame, bg="#e3f2fd")
+shapes_frame.pack(pady=5)
+
+square_radio = tk.Radiobutton(shapes_frame, text="Square", variable=shape_var, value="square", bg='#e3f2fd')
+square_radio.pack(side=tk.LEFT, padx=5)
+circle_radio = tk.Radiobutton(shapes_frame, text="Circle", variable=shape_var, value="circle", bg='#e3f2fd')
+circle_radio.pack(side=tk.LEFT, padx=5)
+triangle_radio = tk.Radiobutton(shapes_frame, text="Triangle", variable=shape_var, value="triangle", bg='#e3f2fd')
+triangle_radio.pack(side=tk.LEFT, padx=5)
+
+generate_button = tk.Button(frame, text="Generate QR Code", command=generate_qr, bg='#007bff', fg='#ffffff', font=('Helvetica', 14))
 generate_button.pack(pady=10)
 
-premium_buttons_frame = tk.Frame(frame, bg='#ffffff')
-color_button = tk.Button(premium_buttons_frame, text="Choose Color", command=choose_color, bg='#007bff', fg='white')
-color_button.pack(pady=5)
-
-upload_button = tk.Button(premium_buttons_frame, text="Upload Image", command=upload_image, bg='#007bff', fg='white')
-upload_button.pack(pady=5)
-
-reset_button = tk.Button(frame, text="Reset", command=reset_fields, bg='#ff6f61', fg='white', font=('Helvetica', 12))
+reset_button = tk.Button(frame, text="Reset", command=reset_fields, bg='#dc3545', fg='#ffffff', font=('Helvetica', 14))
 reset_button.pack(pady=5)
 
-premium_button = tk.Button(frame, text="Sign Up for Premium", command=sign_up_premium, bg='#007bff', fg='white', font=('Helvetica', 12))
+premium_button = tk.Button(frame, text="Sign Up for Premium", command=sign_up_premium, bg='#ffcc00', fg='#333333', font=('Helvetica', 14))
 premium_button.pack(pady=10)
 
 root.mainloop()
